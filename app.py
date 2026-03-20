@@ -19,11 +19,9 @@ def load_artists():
         encoding="utf-8"
     )
     
-    # Keep only first 3 columns: artist name, flag (usually 1), post count
     df = df.iloc[:, :3]
     df.columns = ['artist', 'flag', 'posts']
     
-    # Clean up
     df = df.dropna(subset=['artist', 'posts'])
     df['artist'] = df['artist'].astype(str).str.strip()
     df['posts'] = pd.to_numeric(df['posts'], errors='coerce').fillna(0).astype(int)
@@ -58,13 +56,12 @@ with col_max:
         "Maximum posts",
         min_value=31,
         max_value=5000,
-        value=5000,           # default to include everything
+        value=5000,
         step=100,
         key="max_posts",
         help="Artists must have no more than this many posts (set high to disable)"
     )
 
-# Make sure min ≤ max
 if min_posts > max_posts:
     st.warning("Minimum posts cannot be higher than maximum. Adjusting max to match min.")
     max_posts = min_posts
@@ -76,7 +73,7 @@ num_combos = st.number_input("How many combos to generate", 1, 200, 10)
 weight_by_popularity = st.checkbox("Weight selection by popularity (more posts = more likely)", value=True)
 add_strength_weights = st.checkbox("Add random strength weights like (artist:1.2)", value=False)
 
-# Filter artists based on post count range
+# Filter artists
 filtered = df_artists[
     (df_artists['posts'] >= min_posts) & 
     (df_artists['posts'] <= max_posts)
@@ -96,11 +93,9 @@ st.write(f"→ {len(artists):,} artists available after filtering ({min_posts}�
 # ────────────────────────────────────────
 def generate_combo(k: int) -> str:
     if weight_by_popularity and posts:
-        # Weighted random selection
         chosen_idx = random.choices(range(len(artists)), weights=posts, k=k)
         chosen = [artists[i] for i in chosen_idx]
     else:
-        # Uniform random, no duplicates
         chosen = random.sample(artists, k)
 
     if add_strength_weights:
@@ -112,7 +107,7 @@ def generate_combo(k: int) -> str:
 
 
 # ────────────────────────────────────────
-# Generate button & output
+# Generate button & output with colored artist count
 # ────────────────────────────────────────
 if st.button("Generate Combos!", type="primary"):
     with st.spinner("Generating..."):
@@ -124,7 +119,12 @@ if st.button("Generate Combos!", type="primary"):
 
     for i, combo in enumerate(combos, 1):
         artist_count = len(combo.split(", "))
-        st.markdown(f"**{i}.** ({artist_count} artists)  {combo}")
+        
+        # Colored count + normal tags
+        st.markdown(
+            f'<span style="color: #6b7280; font-weight: bold;">**{i}. ({artist_count} artists)**</span>  {combo}',
+            unsafe_allow_html=True
+        )
 
     # Download option
     st.download_button(
@@ -134,6 +134,6 @@ if st.button("Generate Combos!", type="primary"):
         mime="text/plain"
     )
 
-# Optional footer/info
+# Footer
 st.markdown("---")
 st.caption("Data from: huggingface.co/datasets/Takenoko3333/danbooru-artist • Local CSV for speed")
