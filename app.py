@@ -38,15 +38,15 @@ def load_artists():
 
 df_artists = load_artists()
 
+if not df_artists.empty:
+    st.sidebar.header("📊 Dataset Stats")
+    st.sidebar.write(f"Total Artists: {len(df_artists):,}")
+    st.sidebar.write(f"Post Range: {df_artists['posts'].min()} - {df_artists['posts'].max()}")
+
 # ────────────────────────────────────────
 # User UI - Sidebar for Controls
 # ────────────────────────────────────────
 with st.sidebar:
-    st.header("📊 Dataset Stats")
-    if not df_artists.empty:
-        st.write(f"Total Artists: {len(df_artists):,}")
-    
-    st.divider()
     st.subheader("Filter Artists")
     min_posts = st.number_input("Min Posts", 0, 100000, 100)
     max_posts = st.number_input("Max Posts", 0, 100000, 5000)
@@ -60,53 +60,37 @@ with st.sidebar:
     weight_by_popularity = st.checkbox("Weight by popularity", value=True, help="Artists with more posts appear more often.")
     add_weights = st.checkbox("Add NovelAI Weights", value=False, help="Adds random [0.5 to 2.5]::artist:: formatting.")
 
-    # Filter data based on UI (moved inside sidebar to drive the green bar)
-    filtered = df_artists[
-        (df_artists['posts'] >= min_posts) & 
-        (df_artists['posts'] <= max_posts)
-    ]
-    artists_list = filtered['artist'].tolist()
-    posts_list = filtered['posts'].tolist()
+# Filter data based on UI
+filtered = df_artists[
+    (df_artists['posts'] >= min_posts) & 
+    (df_artists['posts'] <= max_posts)
+]
 
-    st.write("") # Spacer
-    
-    # ────────────────────────────────────────
-    # THE SMALL STATUS BAR
-    # ────────────────────────────────────────
-    if not filtered.empty:
-        st.markdown(
-            f"""
-            <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; border: 1px solid #c3e6cb; font-size: 14px; text-align: center;">
-                ✅ <b>{len(filtered):,}</b> artists available
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    else:
-        st.markdown(
-            """
-            <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; border: 1px solid #f5c6cb; font-size: 14px; text-align: center;">
-                ❌ No artists match filters
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+artists_list = filtered['artist'].tolist()
+posts_list = filtered['posts'].tolist()
 
 # ────────────────────────────────────────
 # Generation Logic
 # ────────────────────────────────────────
 def generate_combo():
+    # Determine how many artists for this specific combo
     k = random.randint(min_k, max_k)
+    
+    # Ensure we don't try to pick more artists than are available
     k = min(k, len(artists_list))
 
     if weight_by_popularity:
+        # Weighted sampling WITHOUT replacement using NumPy
+        # Convert posts to probability distribution
         weights = np.array(posts_list)
         prob = weights / weights.sum()
         chosen = np.random.choice(artists_list, size=k, replace=False, p=prob)
     else:
+        # Standard random sampling (unique)
         chosen = random.sample(artists_list, k)
 
     if add_weights:
+        # Format: weight::artist:: (NovelAI style)
         return ", ".join([f"{round(random.uniform(0.5, 2.5), 1)}::{a}::" for a in chosen])
     
     return ", ".join(chosen)
@@ -115,7 +99,7 @@ def generate_combo():
 # Display Results
 # ────────────────────────────────────────
 if not artists_list:
-    st.warning("No artists found with current filters. Adjust the sidebar to continue.")
+    st.warning("No artists found with current filters. Try lowering the 'Min Posts'.")
 else:
     if st.button("🚀 Generate Artist Combos", type="primary", use_container_width=True):
         combos = [generate_combo() for _ in range(num_combos)]
@@ -124,7 +108,7 @@ else:
         for i, combo in enumerate(combos, 1):
             count = len(combo.split(", "))
             st.markdown(f"**Combo #{i}** ({count} artists)")
-            st.code(combo, language="text")
+            st.code(combo, language="text") # st.code provides a copy button!
 
         # Download functionality
         all_text = "\n".join(combos)
@@ -132,8 +116,7 @@ else:
             "💾 Download as .txt",
             data=all_text,
             file_name="artist_combos.txt",
-            mime="text/plain",
-            use_container_width=True
+            mime="text/plain"
         )
 
 st.divider()
