@@ -36,16 +36,38 @@ df_artists = load_artists()
 st.write(f"Loaded {len(df_artists):,} artists (post counts from {df_artists['posts'].min()} to {df_artists['posts'].max()})")
 
 # ────────────────────────────────────────
-# User controls
+# User controls – Post count range
 # ────────────────────────────────────────
-min_posts = st.slider(
-    "Minimum posts per artist",
-    min_value=31,
-    max_value=2000,
-    value=100,
-    step=25,
-    help="Only artists with at least this many posts on Danbooru will be included"
-)
+st.subheader("Artist Popularity Filter")
+
+col_min, col_max = st.columns(2)
+
+with col_min:
+    min_posts = st.slider(
+        "Minimum posts",
+        min_value=31,
+        max_value=5000,
+        value=100,
+        step=25,
+        key="min_posts",
+        help="Artists must have at least this many posts"
+    )
+
+with col_max:
+    max_posts = st.slider(
+        "Maximum posts",
+        min_value=31,
+        max_value=5000,
+        value=5000,           # default to include everything
+        step=100,
+        key="max_posts",
+        help="Artists must have no more than this many posts (set high to disable)"
+    )
+
+# Make sure min ≤ max
+if min_posts > max_posts:
+    st.warning("Minimum posts cannot be higher than maximum. Adjusting max to match min.")
+    max_posts = min_posts
 
 min_artists_combo = st.slider("Min artists in each combo", 1, 10, 2)
 max_artists_combo = st.slider("Max artists in each combo", min_artists_combo, 15, 6)
@@ -54,16 +76,20 @@ num_combos = st.number_input("How many combos to generate", 1, 200, 10)
 weight_by_popularity = st.checkbox("Weight selection by popularity (more posts = more likely)", value=True)
 add_strength_weights = st.checkbox("Add random strength weights like (artist:1.2)", value=False)
 
-# Filter artists based on minimum posts
-filtered = df_artists[df_artists['posts'] >= min_posts]
+# Filter artists based on post count range
+filtered = df_artists[
+    (df_artists['posts'] >= min_posts) & 
+    (df_artists['posts'] <= max_posts)
+]
+
 artists = filtered['artist'].tolist()
 posts = filtered['posts'].tolist()
 
 if not artists:
-    st.error(f"No artists found with ≥ {min_posts} posts. Try lowering the minimum.")
+    st.error(f"No artists found in the selected post count range ({min_posts}–{max_posts}). Try widening the range.")
     st.stop()
 
-st.write(f"→ {len(artists):,} artists available after filtering (≥ {min_posts} posts)")
+st.write(f"→ {len(artists):,} artists available after filtering ({min_posts}–{max_posts} posts)")
 
 # ────────────────────────────────────────
 # Generate combo function
