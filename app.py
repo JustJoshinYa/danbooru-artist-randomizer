@@ -6,118 +6,86 @@ import numpy as np
 st.set_page_config(page_title="Danbooru Artist Randomizer", layout="wide")
 
 st.title("🎨 Danbooru Artist Combo Randomizer")
-st.write("Generate unique artist tag combinations with optional popularity weighting.")
 
 # ────────────────────────────────────────
 # Data Loading
 # ────────────────────────────────────────
 @st.cache_data
 def load_artists():
-    file_path = "artist.csv"  # Ensure this is in your project root
+    file_path = "artist.csv" 
     try:
-        df = pd.read_csv(
-            file_path,
-            header=None,
-            on_bad_lines="skip",
-            encoding="utf-8"
-        )
-        
+        df = pd.read_csv(file_path, header=None, on_bad_lines="skip", encoding="utf-8")
         df = df.iloc[:, :3]
         df.columns = ['artist', 'flag', 'posts']
-        
         df = df.dropna(subset=['artist', 'posts'])
         df['artist'] = df['artist'].astype(str).str.strip()
         df['posts'] = pd.to_numeric(df['posts'], errors='coerce').fillna(0).astype(int)
-        
-        # Filter out tiny accounts or empty names
-        df = df[(df['artist'].str.len() >= 2) & (df['posts'] > 0)]
-        return df
+        return df[(df['artist'].str.len() >= 2) & (df['posts'] > 0)]
     except FileNotFoundError:
-        st.error("CSV file not found. Please ensure 'artist.csv' is in the app folder.")
         return pd.DataFrame(columns=['artist', 'flag', 'posts'])
 
 df_artists = load_artists()
 
-if not df_artists.empty:
-    st.sidebar.header("📊 Dataset Stats")
-    st.sidebar.write(f"Total Artists: {len(df_artists):,}")
-    st.sidebar.write(f"Post Range: {df_artists['posts'].min()} - {df_artists['posts'].max()}")
-
 # ────────────────────────────────────────
-# User UI - Sidebar for Controls
+# User UI - Filters
 # ────────────────────────────────────────
 with st.sidebar:
-    st.subheader("Filter Artists")
-    min_posts = st.number_input("Min Posts", 0, 100000, 100)
-    max_posts = st.number_input("Max Posts", 0, 100000, 5000)
+    st.header("⚙️ Settings")
+    min_posts = st.slider("Min Posts", 10, 5000, 100, step=10)
+    max_posts = st.slider("Max Posts", 100, 50000, 5000, step=100)
     
-    st.subheader("Combo Settings")
+    st.divider()
     min_k = st.slider("Min artists per combo", 1, 10, 2)
     max_k = st.slider("Max artists per combo", min_k, 20, 6)
     num_combos = st.number_input("Number of combos", 1, 100, 10)
     
     st.divider()
-    weight_by_popularity = st.checkbox("Weight by popularity", value=True, help="Artists with more posts appear more often.")
-    add_weights = st.checkbox("Add NovelAI Weights", value=False, help="Adds random [0.5 to 2.5]::artist:: formatting.")
+    weight_by_popularity = st.checkbox("Weight by popularity", value=True)
+    add_weights = st.checkbox("Add NovelAI Weights", value=False)
 
-# Filter data based on UI
-filtered = df_artists[
-    (df_artists['posts'] >= min_posts) & 
-    (df_artists['posts'] <= max_posts)
-]
-
+# Apply Filters
+filtered = df_artists[(df_artists['posts'] >= min_posts) & (df_artists['posts'] <= max_posts)]
 artists_list = filtered['artist'].tolist()
 posts_list = filtered['posts'].tolist()
 
 # ────────────────────────────────────────
-# Generation Logic
+# THE "LIVE COUNT" UI
+# ────────────────────────────────────────
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    # This gives the user that "Feedback" they liked
+    if not filtered.empty:
+        st.success(f"✅ **{len(filtered):,} artists** available in this range ({min_posts} to {max_posts} posts).")
+    else:
+        st.error("❌ No artists found. Try lowering your 'Min Posts' filter.")
+
+with col2:
+    generate_ready = not filtered.empty
+    gen_btn = st.button("🚀 Generate!", type="primary", disabled=not generate_ready, use_container_width=True)
+
+# ────────────────────────────────────────
+# Logic & Display
 # ────────────────────────────────────────
 def generate_combo():
-    # Determine how many artists for this specific combo
-    k = random.randint(min_k, max_k)
-    
-    # Ensure we don't try to pick more artists than are available
-    k = min(k, len(artists_list))
-
+    k = min(random.randint(min_k, max_k), len(artists_list))
     if weight_by_popularity:
-        # Weighted sampling WITHOUT replacement using NumPy
-        # Convert posts to probability distribution
         weights = np.array(posts_list)
         prob = weights / weights.sum()
         chosen = np.random.choice(artists_list, size=k, replace=False, p=prob)
     else:
-        # Standard random sampling (unique)
         chosen = random.sample(artists_list, k)
 
     if add_weights:
-        # Format: weight::artist:: (NovelAI style)
         return ", ".join([f"{round(random.uniform(0.5, 2.5), 1)}::{a}::" for a in chosen])
-    
     return ", ".join(chosen)
 
-# ────────────────────────────────────────
-# Display Results
-# ────────────────────────────────────────
-if not artists_list:
-    st.warning("No artists found with current filters. Try lowering the 'Min Posts'.")
-else:
-    if st.button("🚀 Generate Artist Combos", type="primary", use_container_width=True):
-        combos = [generate_combo() for _ in range(num_combos)]
-        
-        st.subheader("Your Results")
-        for i, combo in enumerate(combos, 1):
-            count = len(combo.split(", "))
-            st.markdown(f"**Combo #{i}** ({count} artists)")
-            st.code(combo, language="text") # st.code provides a copy button!
+if gen_btn:
+    combos = [generate_combo() for _ in range(num_combos)]
+    st.divider()
+    
+    for i, combo in enumerate(combos, 1):
+        st.markdown(f"**Combo {i}** ({len(combo.split(', '))} artists)")
+        st.code(combo, language="text")
 
-        # Download functionality
-        all_text = "\n".join(combos)
-        st.download_button(
-            "💾 Download as .txt",
-            data=all_text,
-            file_name="artist_combos.txt",
-            mime="text/plain"
-        )
-
-st.divider()
-st.caption("Data Source: Takenoko3333/danbooru-artist Dataset")
+    st.download_button("💾 Download .txt", data="\n".join(combos), file_name="combos.txt")
