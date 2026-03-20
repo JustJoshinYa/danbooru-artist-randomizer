@@ -43,9 +43,7 @@ df_artists = load_artists()
 # ────────────────────────────────────────
 with st.sidebar:
     st.header("📊 Dataset Stats")
-    # Restored the specific requested stats
     st.write("Total Artists: **39,914**")
-    st.write("Post Range: **31 - 5,433**")
     
     st.divider()
     st.subheader("Filter Artists")
@@ -103,7 +101,6 @@ def generate_combo():
     if weight_by_popularity:
         weights = np.array(posts_list)
         prob = weights / weights.sum()
-        # replace=False ensures unique artists within a single combo
         chosen = np.random.choice(artists_list, size=k, replace=False, p=prob)
     else:
         chosen = random.sample(artists_list, k)
