@@ -25,43 +25,59 @@ def load_artists():
 df_artists = load_artists()
 
 # ────────────────────────────────────────
-# Sidebar: Filters & Live Stats
+# Sidebar: Filters & Settings
 # ────────────────────────────────────────
 with st.sidebar:
     st.header("⚙️ Configuration")
     
-    # 1. Popularity Filters
     st.subheader("Artist Filters")
     min_posts = st.slider("Min Posts", 10, 5000, 100, step=10)
     max_posts = st.slider("Max Posts", 100, 50000, 5000, step=100)
     
-    # Apply Filters immediately for the sidebar stat
-    filtered = df_artists[(df_artists['posts'] >= min_posts) & (df_artists['posts'] <= max_posts)]
-    artists_list = filtered['artist'].tolist()
-    posts_list = filtered['posts'].tolist()
-
-    # 2. THE LIVE STAT (Requested Change)
     st.divider()
-    st.metric(label="Artists Available", value=f"{len(filtered):,}")
-    if len(filtered) == 0:
-        st.error("No artists match these filters!")
-    st.divider()
-
-    # 3. Combo Settings
+    
     st.subheader("Combo Settings")
     min_k = st.slider("Min artists per combo", 1, 10, 2)
     max_k = st.slider("Max artists per combo", min_k, 20, 6)
     num_combos = st.number_input("Number of combos", 1, 100, 10)
     
-    st.divider()
     weight_by_popularity = st.checkbox("Weight by popularity", value=True)
     add_weights = st.checkbox("Add NovelAI Weights", value=False)
+
+    # Filtering Logic
+    filtered = df_artists[(df_artists['posts'] >= min_posts) & (df_artists['posts'] <= max_posts)]
+    artists_list = filtered['artist'].tolist()
+    posts_list = filtered['posts'].tolist()
+
+    st.write("") # Spacer
+    st.write("") # Spacer
+
+    # ────────────────────────────────────────
+    # THE SMALL GREEN BAR (At the bottom)
+    # ────────────────────────────────────────
+    if not filtered.empty:
+        st.markdown(
+            f"""
+            <div style="background-color: #d4edda; color: #155724; padding: 8px 12px; border-radius: 6px; border: 1px solid #c3e6cb; font-size: 14px; text-align: center;">
+                ✅ <b>{len(filtered):,}</b> artists available
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            """
+            <div style="background-color: #f8d7da; color: #721c24; padding: 8px 12px; border-radius: 6px; border: 1px solid #f5c6cb; font-size: 14px; text-align: center;">
+                ❌ No artists found
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 # ────────────────────────────────────────
 # Main Area: Title & Generation
 # ────────────────────────────────────────
 st.title("🎨 Artist Combo Randomizer")
-st.write("Adjust filters in the sidebar to update the artist pool.")
 
 # Big Generate Button
 generate_ready = not filtered.empty
