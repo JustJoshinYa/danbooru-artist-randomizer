@@ -71,7 +71,13 @@ max_artists_combo = st.slider("Max artists in each combo", min_artists_combo, 15
 num_combos = st.number_input("How many combos to generate", 1, 200, 10)
 
 weight_by_popularity = st.checkbox("Weight selection by popularity (more posts = more likely)", value=True)
-add_strength_weights = st.checkbox("Add random strength weights like (artist:1.2)", value=False)
+
+# Updated: NovelAI-style weights checkbox with hint
+add_strength_weights = st.checkbox(
+    "Add random NovelAI-style weights (like 1.5::tag::)",
+    value=False,
+    help="Uses format weight::tag:: with weights between 0.5 and 2.5"
+)
 
 # Filter artists
 filtered = df_artists[
@@ -99,7 +105,11 @@ def generate_combo(k: int) -> str:
         chosen = random.sample(artists, k)
 
     if add_strength_weights:
-        parts = [f"({a}:{round(random.uniform(1.05, 1.35), 2)})" for a in chosen]
+        parts = []
+        for a in chosen:
+            # NovelAI style: 0.5–2.5 range, rounded to 1 decimal place
+            w = round(random.uniform(0.5, 2.5), 1)
+            parts.append(f"{w}::{a}::")
     else:
         parts = chosen
 
